@@ -2,7 +2,7 @@ const express = require('express');
 
 const UserService = require('./../services/user.service');
 const validatorHandler = require('./../middlewares/validator.handler');
-const { checkAdminRole } = require('../middlewares/auth.handler');
+const { checkRoles } = require('../middlewares/auth.handler');
 
 const {
   updateUserSchema,
@@ -40,7 +40,7 @@ router.get(
 router.post(
   '/',
   passport.authenticate('jwt', { session: false }),
-  checkAdminRole,
+  checkRoles(['admin', 'useronly']), // todos los roles que pueden acceder
   validatorHandler(createUserSchema, 'body'),
   async (req, res, next) => {
     try {

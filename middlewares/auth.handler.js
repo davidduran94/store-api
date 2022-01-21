@@ -19,4 +19,14 @@ function checkAdminRole(req, res, next) {
   }
 }
 
-module.exports = { checkApiKey, checkAdminRole };
+function checkRoles(roles) {
+  return (req, res, next) => {
+    if (roles.includes(req.user.role)) {
+      next();
+    } else {
+      next(boom.unauthorized());
+    }
+  };
+}
+
+module.exports = { checkApiKey, checkAdminRole, checkRoles };
