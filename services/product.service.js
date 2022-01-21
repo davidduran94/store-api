@@ -1,71 +1,94 @@
-const boom = require('@hapi/boom');
 const faker = require('faker');
-const getConnection = require('../libs/postgres.pool');
-class ProductService {
-  constructor() {
+const { Op } = require('sequelize');
+const boom = require('@hapi/boom');
+
+const { models } = require('../libs/sequelize');
+
+class ProductsService {
+
+  constructor(){
     this.products = [];
     this.generate();
   }
 
   generate() {
-    const { size } = 100;
-    const limit = size || 10;
+    const limit = 100;
     for (let index = 0; index < limit; index++) {
       this.products.push({
         id: faker.datatype.uuid(),
         name: faker.commerce.productName(),
         price: parseInt(faker.commerce.price(), 10),
         image: faker.image.imageUrl(),
-        isBlocked: faker.datatype.boolean(),
+        isBlock: faker.datatype.boolean(),
       });
     }
   }
 
-  create() {
-    return this.products.push({
-      name: faker.commerce.productName(),
-      price: parseInt(faker.commerce.price(), 10),
-      image: faker.image.imageUrl(),
-    });
+  async create(data) {
+    const newProduct = await models.Product.create(data);
+    return newProduct;
   }
 
-  async find() {
-    const client = await getConnection();
-    const rta = await client.query('SELECT * FROM task');
-    return rta.rows;
+  async find(query) {
+    const options = {
+      include: ['category'],
+      where: {}
+    }
+    const { limit, offset } = query;
+    if (limit && offset) {
+      options.limit =  limit;
+      options.offset =  offset;
+    }
+
+    const { price } = query;
+    if (price) {
+      options.where.price = price;
+    }
+
+    const { price_min, price_max } = query;
+    if (price_min && price_max) {
+      options.where.price = {
+        [Op.gte]: price_min,
+        [Op.lte]: price_max,
+      };
+    }
+    const products = await models.Product.findAll(options);
+    return products;
   }
 
-  findOne(id) {
-    const product = this.products.find((x) => x.id === id);
+  async findOne(id) {
+    const product = this.products.find(item => item.id === id);
     if (!product) {
       throw boom.notFound('product not found');
     }
-    if (product.isBlocked) {
-      throw boom.conflict('product id blocked');
+    if (product.isBlock) {
+      throw boom.conflict('product is block');
     }
+    return product;
   }
 
-  update(id, data) {
-    const index = this.products.findIndex((item) => item.id === id);
+  async update(id, changes) {
+    const index = this.products.findIndex(item => item.id === id);
     if (index === -1) {
       throw boom.notFound('product not found');
     }
-    const oldProd = this.products[index];
+    const product = this.products[index];
     this.products[index] = {
-      ...oldProd,
-      ...data,
+      ...product,
+      ...changes
     };
     return this.products[index];
   }
 
-  delete(id) {
-    const index = this.products.findIndex((item) => item.id === id);
+  async delete(id) {
+    const index = this.products.findIndex(item => item.id === id);
     if (index === -1) {
       throw boom.notFound('product not found');
     }
     this.products.splice(index, 1);
     return { id };
   }
+
 }
 
-module.exports = ProductService;
+module.exports = ProductsService;
